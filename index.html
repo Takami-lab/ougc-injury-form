@@ -203,10 +203,10 @@
   for (const [id, list] of Object.entries(OPTS)) {
     $("#"+id).innerHTML = `<option value="">選択</option>` + list.map(v => `<option>${v}</option>`).join("");
   }
-  // デモモード表示は送信先URL未設定のときだけ生成（HTMLに置くとリンクプレビューに出てしまうため）
+  // 開発用の注意表示は送信先URL未設定のときだけ生成する
   if (!CFG.ENDPOINT) {
     const b = document.createElement("div"); b.id = "banner"; b.style.display = "block";
-    b.textContent = "デモモード：config.js に送信先URLが未設定のため、データはこのブラウザ内にのみ保存されます。";
+    b.textContent = "\u30c7\u30e2\u30e2\u30fc\u30c9\uff1aconfig.js \u306b\u9001\u4fe1\u5148URL\u304c\u672a\u8a2d\u5b9a\u306e\u305f\u3081\u3001\u30c7\u30fc\u30bf\u306f\u3053\u306e\u30d6\u30e9\u30a6\u30b6\u5185\u306b\u306e\u307f\u4fdd\u5b58\u3055\u308c\u307e\u3059\u3002";
     $("#f").before(b);
   }
 
