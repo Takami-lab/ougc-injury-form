@@ -1,0 +1,451 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>OUGC 傷害・負傷記録 登録フォーム</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<style>
+  :root { --bg:#f1f3f6; --card:#fff; --ink:#1f2933; --sub:#6b7785; --line:#d5dbe3; --accent:#1a5fb4; --err:#c01c28; --ok:#26a269; }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--bg); color:var(--ink); font:16px/1.6 "Hiragino Sans","Yu Gothic UI",Meiryo,sans-serif; }
+  main { max-width:680px; margin:0 auto; padding:16px; }
+  h1 { font-size:1.35rem; margin:8px 0 4px; }
+  .lead { color:var(--sub); font-size:.9rem; margin:0 0 16px; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:10px; padding:16px; margin-bottom:12px; }
+  label.q, .q { display:block; font-weight:600; margin-bottom:8px; }
+  .req::after { content:" *"; color:var(--err); }
+  input[type=text], input[type=date], input[type=time], select, textarea {
+    width:100%; font:inherit; padding:10px; border:1px solid var(--line); border-radius:8px; background:#fff; color:inherit; }
+  textarea { min-height:90px; resize:vertical; }
+  input:focus, select:focus, textarea:focus { outline:2px solid var(--accent); outline-offset:-1px; }
+  .row { display:flex; gap:10px; } .row > * { flex:1; }
+  .choices label { display:inline-flex; align-items:center; gap:6px; margin:0 16px 4px 0; font-weight:400; }
+  .invalid { border-color:var(--err); } .msg-err { color:var(--err); font-size:.85rem; display:none; margin-top:4px; }
+  .card.has-error .msg-err { display:block; }
+  .card.has-error { border-color:var(--err); }
+
+  /* 受診先 */
+  .hosp-search { position:relative; }
+  .suggest { position:absolute; z-index:1000; left:0; right:0; top:100%; margin-top:4px; background:#fff; border:1px solid var(--line);
+    border-radius:8px; box-shadow:0 6px 18px rgba(0,0,0,.12); max-height:320px; overflow:auto; display:none; }
+  .suggest.open { display:block; }
+  .suggest .grp { font-size:.75rem; color:var(--sub); background:#f7f9fb; padding:4px 10px; position:sticky; top:0; }
+  .suggest button { display:block; width:100%; text-align:left; border:0; background:none; padding:9px 10px; font:inherit; cursor:pointer; border-top:1px solid #eef1f4; }
+  .suggest button:hover, .suggest button.active { background:#eaf2fd; }
+  .suggest .nm { font-weight:600; } .suggest .ad { font-size:.8rem; color:var(--sub); }
+  .badge { font-size:.7rem; background:var(--ok); color:#fff; border-radius:10px; padding:1px 7px; margin-left:6px; font-weight:400; }
+  .status { font-size:.85rem; color:var(--sub); padding:10px; }
+  #map { height:240px; border-radius:8px; margin-top:10px; border:1px solid var(--line); display:none; }
+  .chosen { display:none; margin-top:10px; padding:10px 12px; border:2px solid var(--ok); border-radius:8px; background:#f1fbf5; }
+  .chosen .nm { font-weight:700; } .chosen .ad { font-size:.85rem; color:var(--sub); }
+  .chosen button, .linkbtn { background:none; border:0; color:var(--accent); font:inherit; font-size:.85rem; cursor:pointer; padding:0; text-decoration:underline; }
+  .attr { font-size:.75rem; color:var(--sub); margin-top:6px; }
+  .manual { margin-top:8px; font-size:.85rem; }
+
+  .actions { display:flex; gap:12px; align-items:center; margin-top:8px; }
+  button.submit { background:var(--accent); color:#fff; border:0; border-radius:8px; padding:12px 28px; font:inherit; font-weight:600; cursor:pointer; }
+  button.submit:disabled { opacity:.5; cursor:wait; }
+  #done { display:none; text-align:center; padding:32px 16px; }
+  #banner { background:#fff8e1; border:1px solid #f0d78a; border-radius:8px; padding:8px 12px; font-size:.85rem; margin-bottom:12px; display:none; }
+</style>
+</head>
+<body>
+<main>
+  <h1>OUGC 傷害・負傷記録 登録フォーム</h1>
+  <p class="lead">* は必須項目です</p>
+  <div id="banner">デモモード：<code>config.js</code> に送信先URLが未設定のため、データはこのブラウザ内にのみ保存されます。</div>
+
+  <form id="f" novalidate>
+    <div class="card" data-req>
+      <span class="q req">発生日時</span>
+      <div class="row">
+        <input type="date" name="date" required aria-label="日付">
+        <input type="time" name="time" required aria-label="時刻">
+      </div>
+      <div class="msg-err">日付と時刻を入力してください</div>
+    </div>
+
+    <div class="card" data-req>
+      <span class="q req">発生タイミング</span>
+      <div class="choices">
+        <label><input type="radio" name="timing" value="練習中" required>練習中</label>
+        <label><input type="radio" name="timing" value="試合中">試合中</label>
+        <label><input type="radio" name="timing" value="練習外">練習外</label>
+        <label><input type="radio" name="timing" value="その他">その他</label>
+      </div>
+      <div class="msg-err">選択してください</div>
+    </div>
+
+    <div class="card" data-req>
+      <label class="q req" for="name">氏名（スペース不要）</label>
+      <input type="text" id="name" name="name" required autocomplete="name">
+      <div class="msg-err">入力してください</div>
+    </div>
+
+    <div class="card" data-req>
+      <label class="q req" for="grade">学年（発生時）</label>
+      <select id="grade" name="grade" required></select>
+      <div class="msg-err">選択してください</div>
+    </div>
+
+    <div class="card" data-req>
+      <label class="q req" for="event">種目</label>
+      <select id="event" name="event" required></select>
+      <div class="msg-err">選択してください</div>
+    </div>
+
+    <div class="card" data-req>
+      <label class="q req" for="part">負傷部位</label>
+      <select id="part" name="part" required></select>
+      <div class="msg-err">選択してください</div>
+    </div>
+
+    <div class="card" data-req>
+      <span class="q req">受傷タイプ（急性/慢性）</span>
+      <div class="choices">
+        <label><input type="radio" name="injuryType" value="急性外傷" required>急性外傷</label>
+        <label><input type="radio" name="injuryType" value="慢性障害">慢性障害</label>
+      </div>
+      <div class="msg-err">選択してください</div>
+    </div>
+
+    <div class="card" data-req>
+      <label class="q req" for="situation">発生シチュエーション・受傷機転</label>
+      <textarea id="situation" name="situation" required></textarea>
+      <div class="msg-err">入力してください</div>
+    </div>
+
+    <div class="card">
+      <label class="q" for="firstAid">初期対応</label>
+      <textarea id="firstAid" name="firstAid"></textarea>
+    </div>
+
+    <!-- ===== 受診先（マップ検索で1つに確定） ===== -->
+    <div class="card" id="hospCard">
+      <label class="q" for="hospQ">受診先病院・診療科</label>
+      <div class="choices" style="margin-bottom:8px">
+        <label><input type="checkbox" id="noVisit">受診していない</label>
+      </div>
+      <div id="hospBox">
+        <div class="hosp-search">
+          <div class="row" style="gap:8px">
+            <input type="text" id="hospQ" placeholder="病院名で検索（例：吹田市民病院）" autocomplete="off" role="combobox" aria-expanded="false" aria-controls="suggest">
+            <button type="button" class="submit" id="searchBtn" style="flex:0 0 auto;padding:10px 18px">検索</button>
+          </div>
+          <div class="suggest" id="suggest" role="listbox"></div>
+        </div>
+        <div class="chosen" id="chosen">
+          <div class="nm" id="chosenName"></div>
+          <div class="ad" id="chosenAddr"></div>
+          <button type="button" id="changeHosp">選び直す</button>
+        </div>
+        <div id="map"></div>
+        <div class="attr" id="attr">候補を選ぶと地図上で場所を確認できます。過去に登録された病院は先頭に表示され、同じ病院は自動的に1つにまとまります。</div>
+        <div class="manual"><button type="button" class="linkbtn" id="pickToggle">候補に見つからない場合は地図で指定</button></div>
+        <div id="pickBox" style="display:none;margin-top:8px">
+          <div class="row" style="gap:8px">
+            <input type="text" id="pickQ" placeholder="地名・住所で移動（例：吹田市山田丘）">
+            <button type="button" class="submit" id="pickGo" style="flex:0 0 auto;padding:10px 18px">移動</button>
+          </div>
+          <div id="pickMap" style="height:280px;border-radius:8px;margin-top:8px;border:1px solid var(--line)"></div>
+          <div class="attr">病院の場所を地図上でクリックしてください。</div>
+          <div id="pickInfo" style="display:none;margin-top:8px">
+            <div class="ad" id="pickAddr" style="font-size:.85rem;color:var(--sub)"></div>
+            <input type="text" id="pickName" placeholder="病院名（正式名称）" style="margin:6px 0">
+            <button type="button" class="submit" id="pickOk" style="padding:8px 18px">この場所で確定</button>
+          </div>
+        </div>
+        <div style="margin-top:12px">
+          <label class="q" for="dept" style="font-size:.9rem">診療科</label>
+          <input type="text" id="dept" name="dept" placeholder="例：整形外科">
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <label class="q" for="diagnosis">確定診断名・受診処置</label>
+      <textarea id="diagnosis" name="diagnosis"></textarea>
+    </div>
+
+    <div class="actions">
+      <button type="submit" class="submit" id="submitBtn">送信</button>
+      <button type="button" class="linkbtn" id="clearBtn">フォームをクリア</button>
+    </div>
+  </form>
+
+  <div class="card" id="done">
+    <h2>記録を送信しました</h2>
+    <p>ご協力ありがとうございます。</p>
+    <button type="button" class="submit" id="againBtn">別の記録を入力</button>
+  </div>
+</main>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="config.js"></script>
+<script>
+(() => {
+  const CFG = Object.assign({ ENDPOINT: "", GOOGLE_KEY: "", MAP_CENTER: [34.8226, 135.5246], MAP_ZOOM: 11 }, window.APP_CONFIG || {});
+  const $ = (s) => document.querySelector(s);
+
+  // ---------- 選択肢 ----------
+  const OPTS = {
+    grade: ["1年","2年","3年","4年","院1年","院2年","その他"],
+    event: ["ゆか","あん馬","つり輪","跳馬","平行棒","鉄棒","段違い平行棒","平均台","その他"],
+    part:  ["頭部・顔面","頸部・背部","肩関節・鎖骨","肘関節・前腕","手関節・手部","体幹・腰部","股関節・大腿","膝関節・下腿","足関節・足部","その他"],
+  };
+  for (const [id, list] of Object.entries(OPTS)) {
+    $("#"+id).innerHTML = `<option value="">選択</option>` + list.map(v => `<option>${v}</option>`).join("");
+  }
+  if (!CFG.ENDPOINT) $("#banner").style.display = "block";
+
+  // ---------- 受診先：状態 ----------
+  let chosen = null;            // {id,name,address,lat,lng,source}
+  let registered = [];          // 登録済み病院 [{id,name,address,lat,lng,count}]
+  let map, marker, timer, seq = 0, activeIdx = -1, items = [];
+
+  const q = $("#hospQ"), box = $("#suggest");
+
+  async function loadRegistered() {
+    try {
+      if (CFG.ENDPOINT) {
+        const r = await fetch(CFG.ENDPOINT + "?action=hospitals");
+        registered = (await r.json()).hospitals || [];
+      } else {
+        const rows = JSON.parse(localStorage.getItem("ougc_demo_rows") || "[]");
+        const m = new Map();
+        rows.filter(r => r.hospitalId).forEach(r => {
+          const h = m.get(r.hospitalId) || { id:r.hospitalId, name:r.hospitalName, address:r.hospitalAddress, lat:r.lat, lng:r.lng, count:0 };
+          h.count++; m.set(r.hospitalId, h);
+        });
+        registered = [...m.values()];
+      }
+    } catch (e) { registered = []; }
+  }
+
+  const norm = (s) => (s||"").normalize("NFKC").toLowerCase().replace(/\s+/g,"");
+
+  // ---------- 施設検索（Google Places API (New) Text Search） ----------
+  async function searchGoogle(text, signal) {
+    const [lat, lng] = CFG.MAP_CENTER;
+    const r = await fetch("https://places.googleapis.com/v1/places:searchText", {
+      method: "POST", signal,
+      headers: { "Content-Type":"application/json", "X-Goog-Api-Key":CFG.GOOGLE_KEY,
+                 "X-Goog-FieldMask":"places.id,places.displayName,places.formattedAddress,places.location" },
+      body: JSON.stringify({ textQuery:text, languageCode:"ja", regionCode:"JP", pageSize:10,
+        locationBias:{ circle:{ center:{ latitude:lat, longitude:lng }, radius:50000 } } }),
+    });
+    if (!r.ok) throw new Error("places " + r.status);
+    return ((await r.json()).places || []).map(p => ({
+      id: "gp:" + p.id, name: p.displayName ? p.displayName.text : "",
+      address: (p.formattedAddress || "").replace(/^日本、/, ""),
+      lat: p.location.latitude, lng: p.location.longitude, source: "google",
+    }));
+  }
+  const searchMap = (t, s) => CFG.GOOGLE_KEY ? searchGoogle(t, s) : searchNominatim(t, s);
+
+  // ---------- 施設検索（Nominatim / OpenStreetMap。キー未設定時の代替） ----------
+  // 運用ポリシー上、入力ごとの自動検索は禁止のため Enter / 検索ボタンで実行する。
+  const MEDICAL = new Set(["hospital","clinic","doctors","dentist"]);
+  const nomiAddr = (a) => [a.postcode && "〒"+a.postcode, a.state, a.city || a.town || a.village || a.county, a.city_district || a.suburb || a.neighbourhood, a.road, a.house_number].filter(Boolean).join(" ");
+  async function searchNominatim(text, signal) {
+    const [lat, lon] = CFG.MAP_CENTER, d = 1.5; // 優先エリア（制限はしない）
+    const url = `https://nominatim.openstreetmap.org/search?format=jsonv2&addressdetails=1&limit=15&accept-language=ja&countrycodes=jp`
+      + `&viewbox=${lon-d},${lat+d},${lon+d},${lat-d}&q=${encodeURIComponent(text)}`;
+    const res = await (await fetch(url, { signal })).json();
+    let hits = res.filter(r => MEDICAL.has(r.type));
+    if (!hits.length) hits = res.filter(r => r.category === "amenity" || r.category === "healthcare" || r.category === "building");
+    return hits.map(r => ({
+      id: `osm:${r.osm_type[0].toUpperCase()}${r.osm_id}`,
+      name: r.name || r.display_name.split(",")[0],
+      address: nomiAddr(r.address || {}),
+      lat: +r.lat, lng: +r.lon, source: "osm",
+    }));
+  }
+
+  function render(regHits, mapHits, status) {
+    items = [...regHits, ...mapHits];
+    let html = "";
+    if (regHits.length) html += `<div class="grp">登録済みの病院</div>` + regHits.map((h,i) => itemHtml(h,i,true)).join("");
+    if (mapHits.length) html += `<div class="grp">マップ検索の結果</div>` + mapHits.map((h,i) => itemHtml(h,regHits.length+i,false)).join("");
+    if (status) html += `<div class="status">${status}</div>`;
+    box.innerHTML = html; activeIdx = -1;
+    box.classList.toggle("open", !!html); q.setAttribute("aria-expanded", !!html);
+  }
+  const esc = (s) => (s||"").replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+  const itemHtml = (h,i,reg) => `<button type="button" role="option" data-i="${i}"><span class="nm">${esc(h.name)}</span>${reg?`<span class="badge">${h.count}件登録</span>`:""}<div class="ad">${esc(h.address)}</div></button>`;
+
+  const regMatches = (text) => { const n = norm(text); return n.length < 1 ? [] : registered.filter(h => norm(h.name).includes(n) || norm(h.address).includes(n)).slice(0,5); };
+
+  // 入力中：登録済み病院だけ即時に絞り込む（外部APIは呼ばない）
+  function showRegistered() {
+    const text = q.value.trim(), hits = regMatches(text);
+    render(hits, [], text ? "マップ検索は Enter キーか「検索」ボタン" : "");
+  }
+  // Enter / 検索ボタン：マップ検索
+  async function runSearch() {
+    const text = q.value.trim();
+    if (text.length < 2) return;
+    const regHits = regMatches(text);
+    render(regHits, [], "マップを検索中…");
+    const my = ++seq; runSearch.ctl && runSearch.ctl.abort(); const ctl = (runSearch.ctl = new AbortController());
+    try {
+      const mapHits = (await searchMap(text, ctl.signal)).filter(h => !regHits.some(r => r.id === h.id));
+      if (my !== seq) return;
+      render(regHits, mapHits, (regHits.length+mapHits.length) ? "" : "見つかりません。正式名称の一部（例：「市民病院 吹田」）でもお試しください。");
+    } catch (e) { if (e.name !== "AbortError") render(regHits, [], "検索に失敗しました。通信状況を確認してください。"); }
+  }
+  q.addEventListener("input", showRegistered);
+  $("#searchBtn").onclick = runSearch;
+  q.addEventListener("keydown", (e) => {
+    const btns = [...box.querySelectorAll("button")];
+    if (e.key === "Enter") {
+      e.preventDefault();
+      if (activeIdx >= 0 && btns[activeIdx]) choose(items[btns[activeIdx].dataset.i]); else runSearch();
+    } else if (!btns.length) return;
+    else if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+      e.preventDefault(); activeIdx = (activeIdx + (e.key==="ArrowDown"?1:-1) + btns.length) % btns.length;
+      btns.forEach((b,i) => b.classList.toggle("active", i===activeIdx)); btns[activeIdx].scrollIntoView({block:"nearest"});
+    } else if (e.key === "Escape") box.classList.remove("open");
+  });
+  box.addEventListener("click", (e) => { const b = e.target.closest("button"); if (b) choose(items[b.dataset.i]); });
+  document.addEventListener("click", (e) => { if (!e.target.closest(".hosp-search")) box.classList.remove("open"); });
+
+  // ---------- 確定・地図 ----------
+  function choose(h) {
+    chosen = h;
+    box.classList.remove("open"); q.value = ""; $(".hosp-search .row").style.display = "none";
+    $("#chosenName").textContent = h.name; $("#chosenAddr").textContent = h.address;
+    $("#chosen").style.display = "block";
+    $("#pickBox").style.display = "none";
+    $("#hospCard").classList.remove("has-error");
+    showMap(h);
+  }
+  let gmap, gmarker;
+  async function showGoogleMap(h) {
+    if (!(window.google && google.maps && google.maps.Map)) {
+      await new Promise((res, rej) => {
+        window.__gmInit = res;
+        const s = document.createElement("script");
+        s.src = `https://maps.googleapis.com/maps/api/js?key=${CFG.GOOGLE_KEY}&language=ja&callback=__gmInit`;
+        s.onerror = rej; document.head.appendChild(s);
+      });
+    }
+    const pos = { lat:h.lat, lng:h.lng };
+    if (!gmap) gmap = new google.maps.Map($("#map"), { center:pos, zoom:16, streetViewControl:false, mapTypeControl:false });
+    gmap.setCenter(pos); gmap.setZoom(16);
+    gmarker && gmarker.setMap(null);
+    gmarker = new google.maps.Marker({ position:pos, map:gmap, title:h.name });
+  }
+  function showMap(h) {
+    const el = $("#map"); el.style.display = "block";
+    if (CFG.GOOGLE_KEY) { showGoogleMap(h).catch(() => { el.style.display = "none"; }); return; }
+    if (!map) {
+      map = L.map(el).setView([h.lat, h.lng], 16);
+      L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", { maxZoom:19, attribution:"© OpenStreetMap contributors" }).addTo(map);
+    }
+    map.invalidateSize(); map.setView([h.lat, h.lng], 16);
+    marker && marker.remove(); marker = L.marker([h.lat, h.lng]).addTo(map).bindPopup(esc(h.name)).openPopup();
+  }
+  function unchoose() {
+    chosen = null; $("#chosen").style.display = "none"; $("#map").style.display = "none";
+    $(".hosp-search .row").style.display = ""; q.focus();
+  }
+  $("#changeHosp").onclick = unchoose;
+  // ---------- 地図クリックで場所を指定（検索で見つからない施設用） ----------
+  let pmap, pmark, picked = null;
+  const medicalKind = (r) => MEDICAL.has(r.type);
+  async function nominatim(path) { return (await fetch("https://nominatim.openstreetmap.org/" + path + "&format=jsonv2&accept-language=ja")).json(); }
+  async function onPick(lat, lng) {
+    pmark && pmark.remove(); pmark = L.marker([lat, lng]).addTo(pmap);
+    $("#pickInfo").style.display = "block"; $("#pickAddr").textContent = "住所を取得中…"; $("#pickName").value = "";
+    picked = { lat, lng, id: "pin:" + lat.toFixed(5) + "," + lng.toFixed(5), address: "" };
+    try {
+      const r = await nominatim(`reverse?lat=${lat}&lon=${lng}&zoom=18&addressdetails=1`);
+      picked.address = nomiAddr(r.address || {});
+      $("#pickAddr").textContent = picked.address || "（住所を取得できませんでした）";
+      if (medicalKind(r)) { // 地図上の施設をクリックした場合はOSMのIDを使う（検索結果と同一IDになる）
+        picked.id = `osm:${r.osm_type[0].toUpperCase()}${r.osm_id}`; $("#pickName").value = r.name || "";
+        picked.lat = +r.lat; picked.lng = +r.lon;
+      }
+    } catch (e) { $("#pickAddr").textContent = "（住所を取得できませんでした）"; }
+    $("#pickName").focus();
+  }
+  function openPick() {
+    $("#pickBox").style.display = "block";
+    if (!pmap) {
+      pmap = L.map($("#pickMap")).setView(CFG.MAP_CENTER, 14);
+      L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", { maxZoom:19, attribution:"© OpenStreetMap contributors" }).addTo(pmap);
+      pmap.on("click", (e) => onPick(e.latlng.lat, e.latlng.lng));
+    }
+    setTimeout(() => pmap.invalidateSize(), 0);
+  }
+  $("#pickToggle").onclick = () => { const b = $("#pickBox"); if (b.style.display === "none") { if (chosen) unchoose(); openPick(); } else b.style.display = "none"; };
+  $("#pickGo").onclick = async () => {
+    const t = $("#pickQ").value.trim(); if (!t) return;
+    try { const r = await nominatim(`search?limit=1&countrycodes=jp&q=${encodeURIComponent(t)}`); if (r[0]) pmap.setView([+r[0].lat, +r[0].lon], 17); else alert("場所が見つかりませんでした"); }
+    catch (e) { alert("検索に失敗しました"); }
+  };
+  $("#pickQ").addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); $("#pickGo").click(); } });
+  $("#pickOk").onclick = () => {
+    const name = $("#pickName").value.trim();
+    if (!name) { $("#pickName").focus(); return; }
+    choose({ id: picked.id, name, address: picked.address, lat: picked.lat, lng: picked.lng, source: "pin" });
+  };
+  $("#noVisit").onchange = (e) => { $("#hospBox").style.display = e.target.checked ? "none" : ""; if (e.target.checked && chosen) unchoose(); };
+
+  // ---------- 送信 ----------
+  const form = $("#f");
+  function validate() {
+    let ok = true, first = null;
+    document.querySelectorAll(".card[data-req]").forEach(card => {
+      const fields = [...card.querySelectorAll("[required]")];
+      const bad = fields.some(el => el.type === "radio" ? !card.querySelector(`input[name="${el.name}"]:checked`) : !el.value.trim());
+      card.classList.toggle("has-error", bad);
+      if (bad) { ok = false; first = first || card; }
+    });
+    if (first) first.scrollIntoView({ behavior:"smooth", block:"center" });
+    return ok;
+  }
+  function payload() {
+    const d = Object.fromEntries(new FormData(form));
+    const noVisit = $("#noVisit").checked;
+    return {
+      timestamp: new Date().toISOString(),
+      occurredAt: `${d.date} ${d.time}`,
+      timing: d.timing, name: d.name.trim(), grade: d.grade, event: d.event, part: d.part,
+      injuryType: d.injuryType, situation: d.situation.trim(), firstAid: (d.firstAid||"").trim(),
+      visited: noVisit ? "なし" : (chosen ? "あり" : "未入力"),
+      hospitalId: !noVisit && chosen ? chosen.id : "",
+      hospitalName: noVisit ? "" : (chosen ? chosen.name : ""),
+      hospitalAddress: !noVisit && chosen ? chosen.address : "",
+      lat: !noVisit && chosen ? chosen.lat : "", lng: !noVisit && chosen ? chosen.lng : "",
+      dept: noVisit ? "" : (d.dept||"").trim(), diagnosis: (d.diagnosis||"").trim(),
+    };
+  }
+  async function send(p) {
+    if (CFG.ENDPOINT) {
+      // Apps Script は CORS プリフライトを通さないため text/plain + no-cors で送る
+      await fetch(CFG.ENDPOINT, { method:"POST", mode:"no-cors", headers:{ "Content-Type":"text/plain;charset=utf-8" }, body:JSON.stringify(p) });
+    } else {
+      const rows = JSON.parse(localStorage.getItem("ougc_demo_rows") || "[]"); rows.push(p);
+      localStorage.setItem("ougc_demo_rows", JSON.stringify(rows));
+    }
+  }
+  form.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    if (!validate()) return;
+    const btn = $("#submitBtn"); btn.disabled = true; btn.textContent = "送信中…";
+    try { await send(payload()); form.style.display = "none"; $("#done").style.display = "block"; window.scrollTo(0,0); }
+    catch (err) { alert("送信に失敗しました。通信状況を確認して再度お試しください。"); }
+    finally { btn.disabled = false; btn.textContent = "送信"; }
+  });
+  function reset() { form.reset(); if (chosen) unchoose(); $("#hospBox").style.display = ""; $("#pickBox").style.display = "none"; document.querySelectorAll(".has-error").forEach(c => c.classList.remove("has-error")); }
+  $("#clearBtn").onclick = () => { if (confirm("入力内容をすべて消去しますか？")) reset(); };
+  $("#againBtn").onclick = () => { reset(); $("#done").style.display = "none"; form.style.display = ""; loadRegistered(); };
+
+  loadRegistered();
+})();
+</script>
+</body>
+</html>
