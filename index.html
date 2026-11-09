@@ -114,7 +114,7 @@
     </div>
 
     <div class="card" data-req>
-      <label class="q req" for="situation">発生技・発生シチュエーション・受傷機転</label>
+      <label class="q req" for="situation">発生技・発生シチュエーション・受傷機転・発生場所</label>
       <textarea id="situation" name="situation" required placeholder="例：後方抱え込み2回宙返りの着地時に、右足首を捻った"></textarea>
       <div class="msg-err">入力してください</div>
     </div>
@@ -172,6 +172,11 @@
     <div class="card">
       <label class="q" for="diagnosis">確定診断名・受診処置</label>
       <textarea id="diagnosis" name="diagnosis"></textarea>
+    </div>
+
+    <div class="card">
+      <label class="q" for="returnPeriod">競技復帰までの期間</label>
+      <input type="text" id="returnPeriod" name="returnPeriod" placeholder="例：2週間、約3か月、未定">
     </div>
 
     <div class="actions">
@@ -509,6 +514,7 @@
       timing: d.timing, name: d.name.trim(), grade: d.grade, event: d.event, part: d.part,
       injuryType: d.injuryType, situation: d.situation.trim(), firstAid: (d.firstAid||"").trim(),
       ambulance: d.ambulance ? "あり" : "なし",
+      returnPeriod: (d.returnPeriod||"").trim(),
       visited: noVisit ? "なし" : (chosen ? "あり" : "未入力"),
       hospitalId: !noVisit && chosen ? chosen.id : "",
       hospitalName: noVisit ? "" : (chosen ? chosen.name : ""),
