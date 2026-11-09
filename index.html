@@ -469,8 +469,15 @@
   $("#pickToggle").onclick =() => { const b = $("#pickBox"); if (b.style.display === "none") { if (chosen) unchoose(); openPick(); } else b.style.display = "none"; };
   $("#pickGo").onclick = async () => {
     const t = $("#pickQ").value.trim(); if (!t) return;
-    try { const r = await nominatim(`search?limit=1&countrycodes=jp&q=${encodeURIComponent(t)}`); if (r[0]) pmap.setView([+r[0].lat, +r[0].lon], 17); else alert("場所が見つかりませんでした"); }
-    catch (e) { alert("検索に失敗しました"); }
+    const pin = parseMapsInput(t); // 座標・GoogleマップURLならその地点へ
+    if (pin) { openPickAt(pin.lat, pin.lng, pin.name, true); return; }
+    try {
+      // 住所は国土地理院（番地・全角・〒付きでもOK）を先に使い、だめなら施設名としてOSMで探す
+      let loc = await geocodeGsi(t);
+      if (!loc) { const r = await nominatim(`search?limit=1&countrycodes=jp&q=${encodeURIComponent(t)}`); if (r[0]) loc = { lat:+r[0].lat, lng:+r[0].lon }; }
+      if (loc) pmap.setView([loc.lat, loc.lng], 17);
+      else alert("場所が見つかりませんでした。住所は「市区町村＋町名」までにして、もう一度お試しください。");
+    } catch (e) { alert("検索に失敗しました。通信状況を確認してください。"); }
   };
   $("#pickQ").addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); $("#pickGo").click(); } });
   $("#pickOk").onclick = () => {
