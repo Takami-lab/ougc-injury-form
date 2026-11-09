@@ -4,6 +4,10 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>OUGC 傷害・負傷記録 登録フォーム</title>
+<meta name="description" content="OUGCの傷害・負傷を記録するフォームです。">
+<meta property="og:title" content="OUGC 傷害・負傷記録 登録フォーム">
+<meta property="og:description" content="OUGCの傷害・負傷を記録するフォームです。">
+<meta property="og:type" content="website">
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 <style>
   :root { --bg:#f1f3f6; --card:#fff; --ink:#1f2933; --sub:#6b7785; --line:#d5dbe3; --accent:#1a5fb4; --err:#c01c28; --ok:#26a269; }
@@ -54,7 +58,6 @@
 <main>
   <h1>OUGC 傷害・負傷記録 登録フォーム</h1>
   <p class="lead">* は必須項目です</p>
-  <div id="banner">デモモード：<code>config.js</code> に送信先URLが未設定のため、データはこのブラウザ内にのみ保存されます。</div>
 
   <form id="f" novalidate>
     <div class="card" data-req>
@@ -111,14 +114,17 @@
     </div>
 
     <div class="card" data-req>
-      <label class="q req" for="situation">発生シチュエーション・受傷機転</label>
-      <textarea id="situation" name="situation" required></textarea>
+      <label class="q req" for="situation">発生技・発生シチュエーション・受傷機転</label>
+      <textarea id="situation" name="situation" required placeholder="例：後方抱え込み2回宙返りの着地時に、右足首を捻った"></textarea>
       <div class="msg-err">入力してください</div>
     </div>
 
     <div class="card">
       <label class="q" for="firstAid">初期対応</label>
       <textarea id="firstAid" name="firstAid"></textarea>
+      <div class="choices" style="margin-top:8px">
+        <label><input type="checkbox" name="ambulance" value="あり">救急車を使用した</label>
+      </div>
     </div>
 
     <!-- ===== 受診先（マップ検索で1つに確定） ===== -->
@@ -197,7 +203,12 @@
   for (const [id, list] of Object.entries(OPTS)) {
     $("#"+id).innerHTML = `<option value="">選択</option>` + list.map(v => `<option>${v}</option>`).join("");
   }
-  if (!CFG.ENDPOINT) $("#banner").style.display = "block";
+  // デモモード表示は送信先URL未設定のときだけ生成（HTMLに置くとリンクプレビューに出てしまうため）
+  if (!CFG.ENDPOINT) {
+    const b = document.createElement("div"); b.id = "banner"; b.style.display = "block";
+    b.textContent = "デモモード：config.js に送信先URLが未設定のため、データはこのブラウザ内にのみ保存されます。";
+    $("#f").before(b);
+  }
 
   // ---------- 受診先：状態 ----------
   let chosen = null;            // {id,name,address,lat,lng,source}
@@ -415,6 +426,7 @@
       occurredAt: `${d.date} ${d.time}`,
       timing: d.timing, name: d.name.trim(), grade: d.grade, event: d.event, part: d.part,
       injuryType: d.injuryType, situation: d.situation.trim(), firstAid: (d.firstAid||"").trim(),
+      ambulance: d.ambulance ? "あり" : "なし",
       visited: noVisit ? "なし" : (chosen ? "あり" : "未入力"),
       hospitalId: !noVisit && chosen ? chosen.id : "",
       hospitalName: noVisit ? "" : (chosen ? chosen.name : ""),
